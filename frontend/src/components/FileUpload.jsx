@@ -36,7 +36,7 @@ function FileUpload() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await axios.post("http://localhost:8000/quiz/upload", formData, {
+      const res = await axios.post("https://ethq.onrender.com/quiz/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -55,7 +55,7 @@ function FileUpload() {
     } catch (err) {
       setError(
         err.response?.data?.detail || 
-        "Failed to upload file. Make sure the backend server is running on http://localhost:8000"
+        "Failed to upload file. Make sure the backend server is running on https://ethq.onrender.com"
       );
       console.error("Upload error:", err);
     } finally {
