@@ -36,6 +36,7 @@ function FileUpload() {
       const formData = new FormData();
       formData.append("file", file);
 
+      // Update this URL to your local backend for testing
       const res = await axios.post("https://ethq.onrender.com/quiz/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
