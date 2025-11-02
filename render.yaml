@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ethq-backend
+    env: python
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "gunicorn main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
+    rootDir: backend
+    envVars:
+      - key: MISTRAL_API_KEY
+        sync: false # Set this to 'true' if you want to sync the value from your Render Dashboard
