@@ -10,7 +10,7 @@ os.makedirs("db/chroma_store", exist_ok=True)
 client = chromadb.Client(Settings(persist_directory="db/chroma_store"))
 collection = client.get_or_create_collection("quiz_context")
 
-embedder = SentenceTransformer("all-MiniLM-L3-v2") # Changed to a smaller model to reduce memory footprint
+embedder = SentenceTransformer("sentence-transformers/paraphrase-MiniLM-L3-v2") # Corrected model name
 
 def store_text_chunks(text_iterator, source_name: str, chunk_size: int = 1000, batch_size: int = 32):
     """Split the text into chunks and store embeddings in batches"""
