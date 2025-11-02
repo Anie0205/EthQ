@@ -23,16 +23,26 @@ async def upload_pdf(file: UploadFile):
 
         try:
             # Extract text from PDF
-            extracted_text = extract_text_from_pdf(tmp_path)
-            
-            if not extracted_text.strip():
+            extracted_text_generator = extract_text_from_pdf(tmp_path)
+
+            # This line is removed to avoid loading entire text into memory
+            # extracted_text = " ".join(list(extracted_text_generator))
+
+            # The check below needs to be done on the generator or by consuming it if necessary.
+            # For now, we'll re-extract if we need to check.
+            # TODO: Improve this check to be more memory efficient
+            temp_text_for_check = " ".join(list(extract_text_from_pdf(tmp_path))) # Re-extract to check if empty
+            if not temp_text_for_check.strip():
                 raise HTTPException(status_code=400, detail="No text could be extracted from the PDF")
             
             # Store chunks for future contextual retrieval
-            store_text_chunks(extracted_text, file.filename or "unknown.pdf")
+            store_text_chunks(extracted_text_generator, file.filename or "unknown.pdf")
+
+            # Re-initialize the generator for quiz generation, as it's been consumed
+            extracted_text_generator = extract_text_from_pdf(tmp_path)
             
             # Generate quiz
-            quiz_text = generate_quiz(extracted_text)
+            quiz_text = generate_quiz(extracted_text_generator)
             
             # Parse quiz into structured JSON (parse BEFORE refining if we want to refine)
             quiz_json = parse_quiz_to_json(quiz_text, file.filename or "unknown.pdf")

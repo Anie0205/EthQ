@@ -17,8 +17,22 @@ def _get_configured_client():
     
     return Mistral(api_key=api_key)
 
-def generate_quiz(text: str, query: str = "Generate a quiz from this text") -> str:
+def generate_quiz(text_iterator, query: str = "Generate a quiz from this text") -> str:
     """Generate a multiple-choice quiz using Mistral"""
+    # Concatenate text from iterator, respecting context window limits
+    full_text_list = []
+    current_length = 0
+    for chunk in text_iterator:
+        if current_length + len(chunk) <= 4000:
+            full_text_list.append(chunk)
+            current_length += len(chunk)
+        else:
+            remaining_space = 4000 - current_length
+            full_text_list.append(chunk[:remaining_space])
+            current_length += remaining_space
+            break
+    text_for_mistral = " ".join(full_text_list)
+
     # Retrieve context from your notes/pdf retrieval system
     context = retrieve_context(query)
 
@@ -40,7 +54,7 @@ Guidelines:
 - Questions should be neither too easy nor too difficult
 - Be fair, inclusive, and test actual understanding
 
-Text: {text[:4000]}
+Text: {text_for_mistral}
 Context: {context}
 
 Provide your response in EXACTLY this format (do not include commentary or explanations outside this format):
@@ -64,7 +78,7 @@ Explanation: Brief explanation
 Continue for all 10 questions. IMPORTANT: Only output the quiz in the format above, no other text."""
 
     messages = [{"role": "user", "content": prompt}]
-    
+
     try:
         # Generate content using the new API
         response = client.chat.complete(
