@@ -12,3 +12,4 @@ PyMuPDF
 chromadb
 scikit-learn
 PyYAML
+python-multipart
