@@ -6,11 +6,5 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    proxy: {
-      '/quiz': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      }
-    }
-  }
+  },
 })

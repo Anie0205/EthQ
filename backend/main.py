@@ -1,12 +1,34 @@
-from fastapi import FastAPI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from routers import quiz
+from sqlalchemy.orm import Session
 
-app = FastAPI(title="Ethical Quiz Generator")
+from database import get_db, Base, engine
+from auth import routes as auth_routes
+from auth import models as auth_models  # Import to register models
+from quizzes import routes as quiz_routes
+from quizzes import models as quiz_models  # Import to register models
+from routers import quiz as ai_quiz_router
+from routers import analytics as analytics_router
 
+# Create database tables (imports above ensure all models are registered)
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="EthQ API")
+
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ], # Allow local dev origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -14,12 +36,9 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "Ethical Quiz Generator API", "status": "running", "docs": "/docs"}
+    return {"message": "Welcome to EthQ API", "status": "running"}
 
-app.include_router(quiz.router)
-if __name__ == "__main__":
-    import os
-    import uvicorn
-
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
+app.include_router(quiz_routes.router, prefix="/quizzes", tags=["quizzes"])
+app.include_router(ai_quiz_router.router)
+app.include_router(analytics_router.router)
