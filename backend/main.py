@@ -1,33 +1,35 @@
 import os
 import importlib
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Load environment variables
 load_dotenv()
 
-from database import engine, Base  # import engine and Base
+from database import engine, Base
 # Import all models here so tables can be created
 from auth import models
 from quizzes import models as quiz_models
-# Add other model imports as needed
 
 # Automatically create all tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="EthQ API", version="1.0.0")
 
-# CORS Configuration - Allow your Vercel frontend
+# CORS Configuration - More permissive for debugging
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://eth-q.vercel.app"
 ).split(",")
 ALLOWED_ORIGINS = [o.strip() for o in ALLOWED_ORIGINS if o.strip()]
 
-# Add wildcard for development if needed
+# Add wildcard for development
 if os.getenv("ENVIRONMENT") == "development":
     ALLOWED_ORIGINS.append("*")
+
+print(f"DEBUG: Allowed origins: {ALLOWED_ORIGINS}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +37,27 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"DEBUG: {request.method} {request.url}")
+    print(f"DEBUG: Headers: {dict(request.headers)}")
+    
+    # Try to read body for POST requests
+    if request.method == "POST":
+        try:
+            body = await request.body()
+            print(f"DEBUG: Body length: {len(body)} bytes")
+            print(f"DEBUG: Body preview: {body[:200]}")
+        except Exception as e:
+            print(f"DEBUG: Could not read body: {e}")
+    
+    response = await call_next(request)
+    print(f"DEBUG: Response status: {response.status_code}")
+    return response
 
 def _safe_include(module_path: str, router_attr: str = "router", prefix: str = ""):
     """
@@ -58,7 +80,7 @@ def _safe_include(module_path: str, router_attr: str = "router", prefix: str = "
     except Exception as e:
         print(f"✗ Could not import {module_path}: {e}")
 
-# Include routers - try both locations
+# Include routers
 print("\n=== Loading Routers ===")
 _safe_include("auth.routes")           # auth/routes.py
 _safe_include("quizzes.routes", prefix="/quizzes")  # quizzes/routes.py
