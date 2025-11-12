@@ -4,7 +4,17 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Load environment variables
 load_dotenv()
+
+from database import engine, Base  # import engine and Base
+# Import all models here so tables can be created
+from auth import models
+from quizzes import models as quiz_models
+# Add other model imports as needed
+
+# Automatically create all tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="EthQ API", version="1.0.0")
 
@@ -50,10 +60,10 @@ def _safe_include(module_path: str, router_attr: str = "router", prefix: str = "
 
 # Include routers - try both locations
 print("\n=== Loading Routers ===")
-_safe_include("auth.routes")           # auth/routes.py (no prefix, routes handle their own paths)
-_safe_include("quizzes.routes", prefix="/quizzes")  # quizzes/routes.py with /quizzes prefix
-_safe_include("routers.quiz", prefix="/quiz")       # routers/quiz.py with /quiz prefix  
-_safe_include("routers.analytics", prefix="/analytics")  # routers/analytics.py with /analytics prefix
+_safe_include("auth.routes")           # auth/routes.py
+_safe_include("quizzes.routes", prefix="/quizzes")  # quizzes/routes.py
+_safe_include("routers.quiz", prefix="/quiz")       # routers/quiz.py
+_safe_include("routers.analytics", prefix="/analytics")  # routers/analytics.py
 print("======================\n")
 
 # Root endpoint for health checks
