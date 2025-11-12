@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, HTTPException, Form, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database import get_db
-from auth.routes import get_current_active_user
+from auth.dependencies import get_current_active_user
 from auth import models as auth_models
 from utils.pdf_extractor import extract_text_from_pdf
 from services.retrieval_service import store_text_chunks

@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from pydantic import BaseModel
 
 from database import get_db
-from auth.routes import get_current_active_user
+from auth.dependencies import get_current_active_user
 from quizzes import services, models
 from schemas import (
     Quiz, QuizCreate, QuizAttempt, UserCreate, QuizAttemptCreate,
