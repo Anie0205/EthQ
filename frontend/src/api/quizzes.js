@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { getAuthHeaders } from './auth';
+import { API_BASE_URL } from './config';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://ethq.onrender.com';
+const API_URL = API_BASE_URL;
 
 export const getQuizzes = async () => {
   const response = await axios.get(`${API_URL}/quizzes`, { headers: getAuthHeaders() });

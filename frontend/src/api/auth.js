@@ -1,8 +1,8 @@
 // frontend/src/api/auth.js
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 
-// Use environment variable with fallback
-const API_URL = import.meta.env.VITE_API_URL || 'https://ethq.onrender.com';
+const API_URL = API_BASE_URL;
 
 // Add request interceptor for debugging
 axios.interceptors.request.use(
