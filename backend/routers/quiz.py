@@ -1,5 +1,9 @@
-from fastapi import APIRouter, UploadFile, HTTPException, Form
+from fastapi import APIRouter, UploadFile, HTTPException, Form, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from database import get_db
+from auth.routes import get_current_active_user
+from auth import models as auth_models
 from utils.pdf_extractor import extract_text_from_pdf
 from services.retrieval_service import store_text_chunks
 from services.gemini_service import generate_quiz, reformat_quiz_output, generate_quiz_from_text
@@ -26,7 +30,13 @@ def _raise_if_gemini_error(text: str, context: str):
 
 
 @router.post("/upload")
-async def upload_pdf(file: UploadFile, level: str = Form("intermediate"), questions: int = Form(10)):
+async def upload_pdf(
+    file: UploadFile, 
+    level: str = Form("intermediate"), 
+    questions: int = Form(10),
+    db: Session = Depends(get_db),
+    current_user: auth_models.User = Depends(get_current_active_user)
+):
     try:
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -97,7 +107,13 @@ async def upload_pdf(file: UploadFile, level: str = Form("intermediate"), questi
 
 
 @router.post("/generate-text")
-async def generate_from_text(text: str = Form(...), level: str = Form("intermediate"), questions: int = Form(10)):
+async def generate_from_text(
+    text: str = Form(...), 
+    level: str = Form("intermediate"), 
+    questions: int = Form(10),
+    db: Session = Depends(get_db),
+    current_user: auth_models.User = Depends(get_current_active_user)
+):
     try:
         if len((text or "").strip()) < 400:
             raise HTTPException(status_code=400, detail="Text is too short to generate a quality quiz. Provide more content.")

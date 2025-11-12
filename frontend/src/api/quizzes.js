@@ -53,7 +53,8 @@ export const uploadQuizPDF = async (fileOrFormData) => {
     formData = new FormData();
     formData.append('file', fileOrFormData);
   }
-  const headers = { ...getAuthHeaders(), 'Content-Type': 'multipart/form-data' };
+  // Don't set Content-Type manually - let axios set it with boundary for multipart/form-data
+  const headers = { ...getAuthHeaders() };
   const response = await axios.post(`${API_URL}/quiz/upload`, formData, { headers });
   return response.data;
 };
@@ -63,7 +64,8 @@ export const generateQuizFromText = async ({ text, level, questions }) => {
   formData.append('text', text);
   formData.append('level', level);
   formData.append('questions', String(questions));
-  const headers = { ...getAuthHeaders(), 'Content-Type': 'multipart/form-data' };
+  // Don't set Content-Type manually - let axios set it with boundary for multipart/form-data
+  const headers = { ...getAuthHeaders() };
   const response = await axios.post(`${API_URL}/quiz/generate-text`, formData, { headers });
   return response.data;
 };

@@ -78,7 +78,9 @@ export const logout = () => {
 
 export const getAuthHeaders = () => {
   const token = localStorage.getItem('access_token');
-  return {
-    Authorization: token ? `Bearer ${token}` : '',
-  };
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 };
