@@ -21,15 +21,26 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        if not token:
+            print("DEBUG: No token provided")
+            raise credentials_exception
         payload = utils.decode_access_token(token)
+        if payload is None:
+            print("DEBUG: Token decode failed - invalid token or SECRET_KEY mismatch")
+            raise credentials_exception
         email: str = payload.get("sub")
         if email is None:
+            print("DEBUG: No email in token payload")
             raise credentials_exception
         token_data = TokenData(email=email)
-    except Exception:
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"DEBUG: Exception in get_current_user: {type(e).__name__}: {e}")
         raise credentials_exception
     user = get_user(db, email=token_data.email)
     if user is None:
+        print(f"DEBUG: User not found for email: {token_data.email}")
         raise credentials_exception
     return user
 

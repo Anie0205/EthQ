@@ -8,6 +8,8 @@ const API_URL = API_BASE_URL;
 axios.interceptors.request.use(
   (config) => {
     console.log('API Request:', config.method?.toUpperCase(), config.url);
+    console.log('Headers:', config.headers);
+    console.log('Has Auth Token:', !!config.headers?.Authorization);
     return config;
   },
   (error) => {
