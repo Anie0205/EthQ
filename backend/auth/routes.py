@@ -1,70 +1,101 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Form, Body
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from datetime import timedelta
-from typing import Optional
+import axios from 'axios';
+import { API_BASE_URL } from './config';
 
-from database import get_db
-from auth import models, utils
-from schemas import Token
-from auth.dependencies import get_current_user, get_current_active_user
+const API_URL = API_BASE_URL;
 
-router = APIRouter()
+// Add request interceptor for debugging
+axios.interceptors.request.use(
+  (config) => {
+    console.log('API Request:', config.method?.toUpperCase(), config.url);
+    console.log('Request data:', config.data);
+    console.log('Headers:', config.headers);
+    return config;
+  },
+  (error) => {
+    console.error('Request Error:', error);
+    return Promise.reject(error);
+  }
+);
 
+// Add response interceptor for debugging
+axios.interceptors.response.use(
+  (response) => {
+    console.log('API Response:', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    console.error('Response Error:', error.response?.status, error.message);
+    console.error('Error details:', error.response?.data);
+    return Promise.reject(error);
+  }
+);
 
-def get_user(db: Session, email: str):
-    """Helper function to get user by email."""
-    return db.query(models.User).filter(models.User.email == email).first()
+export const login = async (email, password) => {
+  try {
+    const response = await axios.post(
+      `${API_URL}/token`,
+      new URLSearchParams({
+        username: email,
+        password: password,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    
+    if (response.data.access_token) {
+      localStorage.setItem('access_token', response.data.access_token);
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Login error:', error.response?.data || error.message);
+    throw error;
+  }
+};
 
+export const register = async (email, password) => {
+  try {
+    console.log('Registering with:', { email, password: '***' });
+    
+    // Send as JSON (not form data)
+    const response = await axios.post(
+      `${API_URL}/register`,
+      { 
+        email: email, 
+        password: password 
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('Registration successful:', response.data);
+    
+    if (response.data.access_token) {
+      localStorage.setItem('access_token', response.data.access_token);
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Register error:', error.response?.data || error.message);
+    throw error;
+  }
+};
 
-@router.post("/register", response_model=Token)
-async def register_user(
-    email: Optional[str] = Body(None), 
-    password: Optional[str] = Body(None),
-    form_email: Optional[str] = Form(None),
-    form_password: Optional[str] = Form(None),
-    db: Session = Depends(get_db)
-):
-    # Prefer JSON body, fallback to form-data
-    email = email or form_email
-    password = password or form_password
+export const logout = () => {
+  localStorage.removeItem('access_token');
+};
 
-    if not email or not password:
-        raise HTTPException(status_code=400, detail="Email and password are required")
-
-    db_user = get_user(db, email=email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    if len(password.encode("utf-8")) > 72:
-        raise HTTPException(status_code=400, detail="Password cannot be longer than 72 characters")
-
-    hashed_password = utils.get_password_hash(password)
-    db_user = models.User(email=email, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-
-    access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = utils.create_access_token(
-        data={"sub": db_user.email}, expires_delta=access_token_expires
-    )
-
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-
-@router.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = get_user(db, email=form_data.username)
-    if not user or not utils.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = utils.create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
