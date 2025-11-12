@@ -8,7 +8,7 @@ from services.ethics_filter import refine_quiz # Import refine_quiz
 import tempfile
 import os
 
-router = APIRouter(prefix="/quiz", tags=["Quiz"])
+router = APIRouter(tags=["Quiz"])
 
 
 def _raise_if_gemini_error(text: str, context: str):
