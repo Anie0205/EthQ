@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Form, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
+import json
 
 from database import get_db
 from auth import models, utils
@@ -21,56 +21,55 @@ def get_user(db: Session, email: str):
 # Pydantic model for JSON registration
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=8, max_length=72)
 
 
 @router.post("/register", response_model=Token)
-async def register_user(
-    db: Session = Depends(get_db),
-    # Try JSON body first
-    body: Optional[RegisterRequest] = Body(None),
-    # Fallback to form data
-    form_email: Optional[str] = Form(None),
-    form_password: Optional[str] = Form(None),
-):
+async def register_user(request: Request, db: Session = Depends(get_db)):
     """Register a new user with email and password"""
     
-    # Extract email and password from either JSON or form data
-    if body:
-        email = body.email
-        password = body.password
-    else:
-        email = form_email
-        password = form_password
-    
-    # Validate that we got both fields
-    if not email or not password:
-        raise HTTPException(
-            status_code=400, 
-            detail="Email and password are required"
-        )
+    try:
+        # Read raw body
+        body_bytes = await request.body()
+        print(f"DEBUG: Received body: {body_bytes[:200]}")
+        
+        # Parse JSON
+        body_str = body_bytes.decode('utf-8')
+        body_dict = json.loads(body_str)
+        print(f"DEBUG: Parsed JSON: {body_dict}")
+        
+        # Validate with Pydantic
+        register_data = RegisterRequest(**body_dict)
+        email = register_data.email
+        password = register_data.password
+        
+        print(f"DEBUG: Validated - email: {email}, password length: {len(password)}")
+        
+    except json.JSONDecodeError as e:
+        print(f"ERROR: JSON decode failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+    except Exception as e:
+        print(f"ERROR: Validation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Validation error: {str(e)}")
     
     # Check if user already exists
-    db_user = get_user(db, email=email)
-    if db_user:
-        raise HTTPException(
-            status_code=400, 
-            detail="Email already registered"
-        )
-    
-    # Validate password length (bcrypt has a 72 byte limit)
-    if len(password.encode("utf-8")) > 72:
-        raise HTTPException(
-            status_code=400, 
-            detail="Password cannot be longer than 72 characters"
-        )
+    existing_user = get_user(db, email=email)
+    if existing_user:
+        print(f"ERROR: Email {email} already registered")
+        raise HTTPException(status_code=400, detail="Email already registered")
     
     # Hash password and create user
-    hashed_password = utils.get_password_hash(password)
-    db_user = models.User(email=email, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    try:
+        hashed_password = utils.get_password_hash(password)
+        db_user = models.User(email=email, hashed_password=hashed_password)
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        print(f"SUCCESS: Created user {email}")
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR: Database error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create user")
     
     # Generate access token
     access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -78,6 +77,7 @@ async def register_user(
         data={"sub": db_user.email}, expires_delta=access_token_expires
     )
     
+    print(f"SUCCESS: Generated token for {email}")
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -88,8 +88,19 @@ async def login_for_access_token(
 ):
     """Login with username (email) and password to get access token"""
     
+    print(f"DEBUG: Login attempt for: {form_data.username}")
+    
     user = get_user(db, email=form_data.username)
-    if not user or not utils.verify_password(form_data.password, user.hashed_password):
+    if not user:
+        print(f"ERROR: User {form_data.username} not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not utils.verify_password(form_data.password, user.hashed_password):
+        print(f"ERROR: Invalid password for {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -101,4 +112,5 @@ async def login_for_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     
+    print(f"SUCCESS: Login successful for {form_data.username}")
     return {"access_token": access_token, "token_type": "bearer"}
