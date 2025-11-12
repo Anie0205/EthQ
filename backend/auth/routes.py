@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import timedelta
+from typing import Optional
 
 from database import get_db
 from auth import models, utils
@@ -10,20 +11,34 @@ from schemas import TokenData, UserCreate, UserLogin, Token
 router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+http_bearer = HTTPBearer(auto_error=False)  # Use HTTPBearer for better multipart/form-data compatibility, auto_error=False for custom handling
 
 def get_user(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
-def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+def get_current_user(
+    db: Session = Depends(get_db), 
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer)
+):
+    """
+    Get current user from JWT token.
+    Uses HTTPBearer for better compatibility with multipart/form-data requests.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        if not credentials:
+            print("DEBUG: No credentials provided")
+            raise credentials_exception
+        
+        token = credentials.credentials
         if not token:
             print("DEBUG: No token provided")
             raise credentials_exception
+        
         payload = utils.decode_access_token(token)
         if payload is None:
             print("DEBUG: Token decode failed - invalid token or SECRET_KEY mismatch")
